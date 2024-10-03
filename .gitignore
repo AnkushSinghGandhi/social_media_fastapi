@@ -1,0 +1,50 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment directories
+venv/
+ENV/
+env/
+.venv/
+
+# FastAPI specific
+*.log
+*.sqlite3
+instance/
+
+# PostgreSQL
+*.pgdata
+*.pgsql
+*.pgdump
+
+# Python Package directories
+pip-wheel-metadata/
+*.dist-info/
+
+# Environment variables and configuration
+.env
+.env.local
+.env.*.local
+
+# Docker specific
+*.stackdump
+docker-compose.yml
+Dockerfile
+*.env
+
+# IDE files
+.vscode/
+.idea/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Other cache or build files
+*.egg-info/
+*.pot
+*.mo
+*.pyc
+*.pyo
