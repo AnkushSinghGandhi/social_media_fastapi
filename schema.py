@@ -4,3 +4,7 @@ class UserCreate(BaseModel):
     username: str
     email: EmailStr
     password: str
+
+class PostCreate(BaseModel):
+    title: str
+    content: str
