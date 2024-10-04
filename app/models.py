@@ -20,7 +20,7 @@ class Post(Base):
 
     owner = relationship("User")
     comments = relationship("Comment", back_populates="post")
-
+    likes = relationship("Like", back_populates="post")
 
 class Comment(Base):
     __tablename__ = "comments"
@@ -31,5 +31,15 @@ class Comment(Base):
     user_id = Column(Integer, ForeignKey('users.id'))
 
     post = relationship("Post", back_populates="comments")
+    user = relationship("User")
+
+class Like(Base):
+    __tablename__ = "likes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey('posts.id'))
+    user_id = Column(Integer, ForeignKey('users.id'))
+
+    post = relationship("Post", back_populates="likes")
     user = relationship("User")
 

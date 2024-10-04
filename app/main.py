@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.utils import hash_password, verify_password, create_access_token, verify_access_token
 from app.database import engine, get_db
-from app.models import Base, User, Post, Comment
+from app.models import Base, User, Post, Comment, Like
 
 app = FastAPI()
 
@@ -127,3 +127,38 @@ def get_comments(post_id: int, db: Session = Depends(get_db)):
     comments = db.query(Comment).filter(Comment.post_id == post_id).all()
     return comments
 
+@app.post("/posts/{post_id}/like")
+def like_post(post_id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    # Verify user
+    payload = verify_access_token(token)
+    if payload is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
+    user_email = payload.get("sub")
+    user = db.query(User).filter(User.email == user_email).first()
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # Verify post exists
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    
+    # Check if user already liked the post
+    like = db.query(Like).filter(Like.post_id == post_id, Like.user_id == user.id).first()
+    if like:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You have already liked this post")
+    
+    # Create new like
+    new_like = Like(post_id=post.id, user_id=user.id)
+    db.add(new_like)
+    db.commit()
+    db.refresh(new_like)
+    
+    return {"message": "Post liked successfully"}
+
+@app.get("/posts/{post_id}/likes")
+def get_likes(post_id: int, db: Session = Depends(get_db)):
+    likes_count = db.query(Like).filter(Like.post_id == post_id).count()
+    return {"post_id": post_id, "likes": likes_count}
