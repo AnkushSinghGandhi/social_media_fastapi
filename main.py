@@ -1,10 +1,10 @@
 from fastapi import FastAPI, HTTPException, status, Depends
-from schema import UserCreate, PostCreate
+from schema import UserCreate, PostCreate, CommentCreate
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from utils import hash_password, verify_password, create_access_token, verify_access_token
 from database import engine, get_db
-from models import Base, User, Post
+from models import Base, User, Post, Comment
 
 app = FastAPI()
 
@@ -95,3 +95,35 @@ def get_post(post_id: int, db: Session = Depends(get_db)):
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
     return post
+
+@app.post("/posts/{post_id}/comments")
+def create_comment(post_id: int, comment: CommentCreate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    # Verify user
+    payload = verify_access_token(token)
+    if payload is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
+    user_email = payload.get("sub")
+    user = db.query(User).filter(User.email == user_email).first()
+    
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # Verify post exists
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    
+    # Create comment
+    new_comment = Comment(content=comment.content, post_id=post.id, user_id=user.id)
+    db.add(new_comment)
+    db.commit()
+    db.refresh(new_comment)
+
+    return new_comment
+
+@app.get("/posts/{post_id}/comments")
+def get_comments(post_id: int, db: Session = Depends(get_db)):
+    comments = db.query(Comment).filter(Comment.post_id == post_id).all()
+    return comments
+
