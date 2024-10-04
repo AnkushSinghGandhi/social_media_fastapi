@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, status, Depends
-from app.schema import UserCreate, PostCreate, CommentCreate
+from app.schemas import UserCreate, PostCreate, CommentCreate
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.utils import hash_password, verify_password, create_access_token, verify_access_token
@@ -11,6 +11,19 @@ app = FastAPI()
 Base.metadata.create_all(bind=engine)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+def admin_required(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    payload = verify_access_token(token)
+    if payload is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
+    user_email = payload.get("sub")
+    user = db.query(User).filter(User.email == user_email).first()
+
+    if not user or user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough privileges")
+    
+    return user
 
 @app.post("/register")
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
@@ -162,3 +175,13 @@ def like_post(post_id: int, db: Session = Depends(get_db), token: str = Depends(
 def get_likes(post_id: int, db: Session = Depends(get_db)):
     likes_count = db.query(Like).filter(Like.post_id == post_id).count()
     return {"post_id": post_id, "likes": likes_count}
+
+@app.delete("/admin/posts/{post_id}")
+def delete_post(post_id: int, db: Session = Depends(get_db), user: User = Depends(admin_required)):
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    
+    db.delete(post)
+    db.commit()
+    return {"message": "Post deleted successfully"}
