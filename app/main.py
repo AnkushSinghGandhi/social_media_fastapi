@@ -1,10 +1,10 @@
 from fastapi import FastAPI, HTTPException, status, Depends
-from schema import UserCreate, PostCreate, CommentCreate
+from app.schema import UserCreate, PostCreate, CommentCreate
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from utils import hash_password, verify_password, create_access_token, verify_access_token
-from database import engine, get_db
-from models import Base, User, Post, Comment
+from app.utils import hash_password, verify_password, create_access_token, verify_access_token
+from app.database import engine, get_db
+from app.models import Base, User, Post, Comment
 
 app = FastAPI()
 
