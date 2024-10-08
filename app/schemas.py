@@ -11,3 +11,6 @@ class PostCreate(BaseModel):
 
 class CommentCreate(BaseModel):
     content: str
+
+class FollowerCreate(BaseModel):
+    followed_id: int

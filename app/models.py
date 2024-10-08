@@ -44,3 +44,12 @@ class Like(Base):
     post = relationship("Post", back_populates="likes")
     user = relationship("User")
 
+class Follower(Base):
+    __tablename__ = "followers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    follower_id = Column(Integer, ForeignKey("users.id"))
+    followed_id = Column(Integer, ForeignKey("users.id"))
+
+    follower = relationship("User", foreign_keys=[follower_id])
+    followed = relationship("User", foreign_keys=[followed_id])
