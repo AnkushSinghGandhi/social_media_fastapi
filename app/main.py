@@ -6,9 +6,37 @@ from app.utils import hash_password, verify_password, create_access_token, verif
 from app.database import engine, get_db
 from app.models import Base, User, Post, Comment, Like, Follower
 
+description = """
+A social media application built with FastAPI that enables user registration, login, and profile management. It features a real-time messaging system using WebSockets, PostgreSQL for data storage, and Redis for caching and rate limiting.
+"""
 
+tags_metadata = [
+    {
+        "name": "Users",
+        "description": "Operations with users. The **login** logic is also here.",
+        "externalDocs": {
+            "description": "Items external docs",
+            "url": "https://fastapi.tiangolo.com/",
+        },
+    },
+]
 
-app = FastAPI()
+app = FastAPI(
+    title="Social Media FastAPI 🚀🚀",
+    description=description,
+    summary="Tech Stack - FastAPI, PostgressSQL, Reddis",
+    version="0.0.1",
+    openapi_tags=tags_metadata,
+    contact={
+        "name": "Ankush Singh Gandhi",
+        "url": "http://warriorwhocodes.com",
+        "email": "ankushsinghgandhi@gmail.com",
+    },
+    license_info={
+        "name": "Apache 2.0",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
+    },
+)
 
 Base.metadata.create_all(bind=engine)
 
