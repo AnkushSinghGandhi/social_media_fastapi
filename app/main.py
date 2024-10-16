@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.utils import hash_password, verify_password, create_access_token, verify_access_token
 from app.database import engine, get_db
-from app.models import Base, User, Post, Comment, Like, Follower
+from app.models import Base, User, Post, Comment, Like, Follower, Notification
 
 description = """
 A social media application built with FastAPI that enables user registration, login, and profile management. It features a real-time messaging system using WebSockets, PostgreSQL for data storage, and Redis for caching and rate limiting.
@@ -54,6 +54,14 @@ def admin_required(token: str = Depends(oauth2_scheme), db: Session = Depends(ge
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough privileges")
     
     return user
+
+def create_notification(message: str, user_id: int, db: Session):
+    notification = Notification(message=message, user_id=user_id)
+    db.add(notification)
+    db.commit()
+    db.refresh(notification)
+    return notification
+
 
 @app.post("/register", tags=['Users'])
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
@@ -163,6 +171,8 @@ def create_comment(post_id: int, comment: CommentCreate, db: Session = Depends(g
     db.commit()
     db.refresh(new_comment)
 
+    create_notification(f"{user.email} commented on your post", post.user_id, db)
+
     return new_comment
 
 @app.get("/posts/{post_id}/comments", tags=['Comments & Likes'])
@@ -198,7 +208,9 @@ def like_post(post_id: int, db: Session = Depends(get_db), token: str = Depends(
     db.add(new_like)
     db.commit()
     db.refresh(new_like)
-    
+
+    create_notification(f"{user.email} liked your post", post.user_id, db)
+
     return {"message": "Post liked successfully"}
 
 @app.get("/posts/{post_id}/likes", tags=['Comments & Likes'])
@@ -301,3 +313,18 @@ def delete_post(post_id: int, db: Session = Depends(get_db), user: User = Depend
     db.delete(post)
     db.commit()
     return {"message": "Post deleted successfully"}
+
+@app.get("/notifications")
+def get_notifications(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    payload = verify_access_token(token)
+    if payload is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
+    user_email = payload.get("sub")
+    user = db.query(User).filter(User.email == user_email).first()
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    notifications = db.query(Notification).filter(Notification.user_id == user.id).all()
+    return notifications
