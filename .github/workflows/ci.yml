@@ -15,7 +15,7 @@ jobs:
           POSTGRES_DB: test_db
         ports:
           - 5432:5432
-        options: > 
+        options: >
           --health-cmd="pg_isready -U ankushsinghgandhi" 
           --health-interval=10s 
           --health-timeout=5s 
@@ -34,11 +34,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    # Set DATABASE_URL for the test database
-    - name: Set up environment variables
-      env:
-        DATABASE_URL: postgresql://ankushsinghgandhi:password123@localhost:5432/test_db
-      run: echo "Environment variables set."
+    - name: Set DATABASE_URL environment variable
+      run: echo "DATABASE_URL=postgresql://ankushsinghgandhi:password123@localhost:5432/test_db" >> $GITHUB_ENV
 
     - name: Wait for PostgreSQL to be ready
       run: |
