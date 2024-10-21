@@ -1,10 +1,15 @@
-from fastapi import FastAPI, HTTPException, status, Depends
+from fastapi import FastAPI, HTTPException, status, Depends, WebSocket, WebSocketDisconnect
+from typing import List
 from app.schemas import UserCreate, PostCreate, CommentCreate
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.utils import hash_password, verify_password, create_access_token, verify_access_token
 from app.database import engine, get_db
 from app.models import Base, User, Post, Comment, Like, Follower, Notification
+import redis
+
+# Initialize Redis client
+redis_client = redis.Redis(host="localhost", port=6379, db=0)
 
 description = """
 A social media application built with FastAPI that enables user registration, login, and profile management. It features a real-time messaging system using WebSockets, PostgreSQL for data storage, and Redis for caching and rate limiting.
@@ -60,7 +65,47 @@ def create_notification(message: str, user_id: int, db: Session):
     db.add(notification)
     db.commit()
     db.refresh(notification)
+
+    redis_client.publish(f"user_{user_id}_notifications", message)
+
     return notification
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_message(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+# Create an instance of the connection manager
+manager = ConnectionManager()
+
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: int):
+    await manager.connect(websocket)
+
+    pubsub = redis_client.pubsub()
+    pubsub.subscribe(f"user_{user_id}_notifications")
+
+    try:
+        while True:
+            message = pubsub.get_message()
+            if message:
+                await manager.send_message(message['data'].decode('utf-8'), websocket)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
 
 
 @app.post("/register", tags=['Users'])
