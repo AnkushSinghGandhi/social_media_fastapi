@@ -20,6 +20,7 @@ jobs:
           --health-interval=10s 
           --health-timeout=5s 
           --health-retries=5
+
     steps:
     - uses: actions/checkout@v3
 
@@ -34,9 +35,20 @@ jobs:
         pip install -r requirements.txt
 
     # Set DATABASE_URL for the test database
-    - name: Set DATABASE_URL environment variable
-      run: echo "DATABASE_URL=postgresql://ankushsinghgandhi:password123@localhost:5432/test_db" >> $GITHUB_ENV
+    - name: Set up environment variables
+      env:
+        DATABASE_URL: postgresql://ankushsinghgandhi:password123@localhost:5432/test_db
+      run: echo "Environment variables set."
+
+    - name: Wait for PostgreSQL to be ready
+      run: |
+        until pg_isready -h localhost -p 5432 -U ankushsinghgandhi; do
+          echo "Waiting for PostgreSQL..."
+          sleep 5
+        done
 
     - name: Run tests
       run: |
         pytest
+      env:
+        DATABASE_URL: ${{ env.DATABASE_URL }}
