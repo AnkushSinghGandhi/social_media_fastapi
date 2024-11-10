@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, status, Depends, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, status, Depends, WebSocket, WebSocketDisconnect, BackgroundTasks
 from typing import List
 from app.schemas import UserCreate, PostCreate, CommentCreate
 from sqlalchemy.orm import Session
@@ -7,6 +7,9 @@ from app.utils import hash_password, verify_password, create_access_token, verif
 from app.database import engine, get_db
 from app.models import Base, User, Post, Comment, Like, Follower, Notification
 import redis
+from aiosmtplib import SMTP
+from email.message import EmailMessage
+from app.config import settings
 
 # Initialize Redis client
 redis_client = redis.Redis(host="localhost", port=6379, db=0)
@@ -88,6 +91,17 @@ class ConnectionManager:
         for connection in self.active_connections:
             await connection.send_text(message)
 
+async def send_email_background(email_to: str, subject: str, body: str):
+    message = EmailMessage()
+    message["From"] = settings.MAIL_FROM
+    message["To"] = email_to
+    message["Subject"] = subject
+    message.set_content(body)
+
+    async with SMTP(hostname=settings.MAIL_SERVER, port=settings.MAIL_PORT, use_tls=settings.MAIL_TLS) as smtp:
+        await smtp.login(settings.MAIL_USERNAME, settings.MAIL_PASSWORD)
+        await smtp.send_message(message)
+
 # Create an instance of the connection manager
 manager = ConnectionManager()
 
@@ -106,7 +120,11 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-
+@app.post("/send-notification/")
+async def send_notification(email_to: str, background_tasks: BackgroundTasks):
+    # Add the background task for sending the email
+    background_tasks.add_task(send_email_background, email_to, "New Notification", "You have a new notification.")
+    return {"message": "Notification email is being sent in the background"}
 
 @app.post("/register", tags=['Users'])
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
